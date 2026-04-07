@@ -1,4 +1,4 @@
-naca 0012
+naca 0009
 pane
 n
 2000
@@ -47,21 +47,6 @@ cpwr xfoil_a-9.000_cpwr.dat
 alfa -10
 dump xfoil_a-10.000_dump.dat
 cpwr xfoil_a-10.000_cpwr.dat
-alfa -11
-dump xfoil_a-11.000_dump.dat
-cpwr xfoil_a-11.000_cpwr.dat
-alfa -12
-dump xfoil_a-12.000_dump.dat
-cpwr xfoil_a-12.000_cpwr.dat
-alfa -13
-dump xfoil_a-13.000_dump.dat
-cpwr xfoil_a-13.000_cpwr.dat
-alfa -14
-dump xfoil_a-14.000_dump.dat
-cpwr xfoil_a-14.000_cpwr.dat
-alfa -15
-dump xfoil_a-15.000_dump.dat
-cpwr xfoil_a-15.000_cpwr.dat
 pwrt
 xfoil_pwrt.dat
 plis

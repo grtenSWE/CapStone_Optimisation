@@ -12,105 +12,132 @@ function [obj, speed] = evaluateTurbine(fx, c, beta)
     % Outputs:  obj = objective value of interest, to be defined for the
     %                 application. Usually, Cp.
     %           speed = The RPM of the turbine
-    %
-    % Author: Chris Oliver
-    % UPI: coli772
-    % ID: 921085653
-    % Date: 23/03/2026
     
     % Constants (to go into params)
     global Vu rho eta nSections clearance B R Curve
     
-    % Radial positions
+    % Radius accross the sections of the blades
     r = linspace(clearance, R, nSections);
     
-    % Initial tip speed ratio
-    lambda = 1.0;
-    tol = 1e-6;
-    maxIter = 1000;
+    % Initialising lambda as the tip speed ratio and starting at ideal value 
+    lambda = 1;
     
-    % Relaxation factors
-    xi_inner = 0.2;
-    xi_outer = 0.3;
+    % Initialising axial induction factor accross sections at ideal value
+    a = ones(1, nSections) * 0.33;
     
-    % Stability
-    sigma = (B .* c) ./ (2 * pi .* r);
+    % Initialising tangential induction factor accross sections at ideal value
+    a_prime = zeros(1, nSections);
     
-    % Initial induction factors
-    a  = 0.33 * ones(1, nSections);
-    ap = zeros(1, nSections);
+    % Convergence speed to be altered as a hyperparameter
+    conv_speed = 0.1;
     
-    % Outer loop for tip-speed ratio
-    for outer = 1:maxIter
-        % Local TSR
-        lambda_r = lambda .* (r ./ R);
+    % convergence_outer initialised to be used for loop exit later on
+    converged_outer = false;
+    
+    
+    % Capped at a set number of iterations
+    for i = 1:100
         
-        % Inner loop for induction convergence
-        for inner = 1:maxIter
-            % Flow angle
-            phi = atan2((1 - a), (lambda_r .* (1 + ap)));
-            phi = max(phi, 1e-4);
-            
-            % Angle of attack
-            alpha = phi - beta;
-            
-            % Aero coefficients
-            [Cl, Cd] = fx(alpha);
-            
-            % Force coefficients
-            Cn = Cl .* cos(phi) + Cd .* sin(phi);
-            Ct = Cl .* sin(phi) - Cd .* cos(phi);
-            
-            % Denominator protection
-            den_a  = 4 .* sin(phi).^2 + sigma .* Cn;
-            den_ap = 4 .* sin(phi) .* cos(phi) - sigma .* Ct;
-            den_a  = sign(den_a)  .* max(abs(den_a), 1e-6);
-            den_ap = sign(den_ap) .* max(abs(den_ap), 1e-6);
+        % Calculating rotational speed of the rotor (rad/s)
+        Omega = lambda * Vu / R;
     
-            a_new  = (sigma .* Cn) ./ den_a;
-            ap_new = (sigma .* Ct) ./ den_ap;
+        % Calculating local speed ratio at each blade section
+        lambda_r = Omega .* r / Vu;
+        
+        % convergence_outer initialised to be used for loop exit later on
+        converged_inner = false;
+        
     
-            % Physical Limitations
-            a_new = clip(a_new, 0, 0.5);
+        % Capped at a set number of iterations
+        for j = 1:300
     
-            ae  = max(abs(a_new - a));
-            ape = max(abs(ap_new - ap));
+            % Calculating safe denominator for wind angle for convergence
+            denom_wind = max(lambda_r .* (1 + a_prime), 1e-4);
             
-            % Relaxation
-            a  = a  + xi_inner .* (a_new  - a);
-            ap = ap + xi_inner .* (ap_new - ap);
+            % Calculating safe wind_angle for convergence
+            wind_angle = max((atan((1 - a) ./ denom_wind)), 1e-4);
             
-            % Convergence check
-            if max(ae, ape) < tol
-                break;
+            % Calculating current alpha
+            alpha_current = wind_angle - beta;
+    
+            % Calculating lift and drag coefficients using surrogate model
+            [Cl, Cd] = fx(alpha_current);
+            
+            % Calculating solidity accross airfoil sections
+            solidity = (B * c) ./ (2 * pi .* r);
+    
+            % Calculating normal and tangential coefs using trig
+            Cn = Cl .* cos(wind_angle) + Cd .* sin(wind_angle);
+            Ct = Cl .* sin(wind_angle) - Cd .* cos(wind_angle);
+            
+            % Storing previous values of a values
+            a_old = a;
+            a_prime_old = a_prime;
+            
+            % Calculating safe denominator for a update
+            denom_a = max(4 * sin(wind_angle).^2 + solidity .* Cn, 1e-3);
+    
+            % Calculating new a value
+            a_new = (solidity .* Cn) ./ denom_a;
+            
+            % Calculating safe denominator for a prime
+            denom_a_prime = 4 .* sin(wind_angle) .* cos(wind_angle) - solidity .* Ct;
+            denom_a_prime = sign(denom_a_prime) .* max(abs(denom_a_prime), 1e-3);
+    
+            % Calculating new a prime
+            a_prime_new = (solidity .* Ct) ./ denom_a_prime;
+            
+            % Updating actual a values based on convergence hyperparameter
+            a = (1 - conv_speed) * a_old + conv_speed * a_new;
+            a_prime = (1 - conv_speed) * a_prime_old + conv_speed * a_prime_new;
+    
+            % Clamp axial induction factor
+            a = max(min(a, 0.5), 0);
+            
+            % Exit condition for inner loop
+            if max(abs(a_old - a)) < 1e-4 && max(abs(a_prime_old - a_prime)) < 1e-4
+                converged_inner = true;
+                break
             end
         end
+    
+        % Sin floor for convergence safety
+        sin_phi = max(sin(wind_angle), 0.05);
         
-        % Torque per unit length
-        pT = (rho * Vu^2 .* ((1 - a).^2 .* Ct .* c) ./ (2 .* sin(phi).^2));
+        % Calculating tangential load and 
+        tangential_load = Ct .* c .* 0.5 * rho .* (Vu^2 * (1 - a).^2) ./ sin_phi.^2;
+        Q = B * trapz(r, tangential_load .* r);
         
-        % Total torque
-        Q = B * trapz(r, pT .* r);
+        % Safe lambda updates
+        lambda_old = lambda;
+        lambda_new = (pi * R * Curve(Q)) / (30 * Vu);
+        lambda = (1 - conv_speed) * lambda_old + conv_speed * lambda_new;
         
-        % Generator curve
-        speed = Curve(Q);
-        
-        % Updated TSR
-        lambda_new = (pi * R * speed) / (30 * Vu);
-        
-        % Outer relaxation    
-        lambda_e = abs(lambda_new - lambda);
-        lambda = lambda + xi_outer .* (lambda_new - lambda);
-        
-        if lambda_e < tol
-            break;
+        % Outer loop exit condition
+        if abs(lambda_old - lambda) < 1e-4
+            converged_outer = true;
+            break
         end
     end
     
-    % Final power
-    Omega = speed * pi / 30;
-    PE = Q * Omega * eta;
+    % Graceful failure
+    if ~converged_outer || ~converged_inner
+        obj = 0;
+        speed = 0;
+        return
+    end
     
-    % Outputs
-    obj = PE;
+    % Negative RPM check
+    rpm = Curve(Q);
+    if rpm < 0
+        obj = 0;
+        speed = rpm;
+        return
+    end
+    
+    % Final updates of values before function end
+    Omega = lambda * Vu / R;
+    Pe = eta * Q * Omega;
+    obj = Pe;
+    speed = rpm;
 end
