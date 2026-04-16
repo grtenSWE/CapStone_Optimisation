@@ -1,7 +1,7 @@
 % TESTCREATESURROGATE Basic check for the provided surrogate code.
 clear all; close all; clc;
 
-airfoil = 'NACA0012';
+airfoil = 'NACA0015';
 default_range = -10:1:12;
 wide_range = -15:1:15;
 alpha_test_deg = -25:0.5:25;

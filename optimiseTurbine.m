@@ -13,67 +13,68 @@ results = struct();
 % Candidate airfoils
 airfoil_candidates = {
     %% Symmetric (common for VAWT / structural simplicity)
-    'NACA0008'
-    'NACA0009'
-    'NACA0010'
-    'NACA0011'
-    'NACA0012'
-    'NACA0013'
-    'NACA0014'
-    'NACA0015'
-    'NACA0016'
-    'NACA0017'
-    'NACA0018'
-    'NACA0019'
-    'NACA0020'
-    'NACA0021'
-    'NACA0022'
-    'NACA0023'
-    'NACA0024'
-    'NACA0025'
-    'NACA0026'
-    'NACA0028'
-    'NACA0030'
-
-    %% Mild camber (general HAWT performance)
-    'NACA1408'
-    'NACA1409'
-    'NACA1410'
-    'NACA1411'
-    'NACA1412'
-    'NACA1414'
-
-    'NACA2408'
-    'NACA2409'
-    'NACA2410'
-    'NACA2411'
-    'NACA2412'
-    'NACA2413'
-    'NACA2414'
-    'NACA2415'
-
-    %% Moderate camber (balanced efficiency + torque)
-    'NACA4309'
-    'NACA4310'
-    'NACA4312'
-    'NACA4314'
-    'NACA4315'
-
-    %% Higher camber (better lift at low Reynolds / startup torque)
-    'NACA4409'
-    'NACA4410'
-    'NACA4412'
-    'NACA4414'
-    'NACA4415'
-    'NACA4418'
-
-    %% Very high camber / thick (root sections / aggressive lift)
-    'NACA4421'
-    'NACA4424'
-
-    %% Thick symmetric (structure / low-speed robustness)
-    'NACA0032'
-    'NACA0035'
+    % 'NACA0008'
+    % 'NACA0009'
+    % 'NACA0010'
+    % 'NACA0011'
+    % 'NACA0012'
+    % 'NACA0013'
+    % 'NACA0014'
+    % 'NACA0015'
+    % 'NACA0016'
+    % 'NACA0017'
+    % 'NACA0018'
+    % 'NACA0019'
+    % 'NACA0020'
+    % 'NACA0021'
+    % 'NACA0022'
+    % 'NACA0023'
+    % 'NACA0024'
+    % 'NACA0025'
+    % 'NACA0026'
+    % 'NACA0028'
+    % 'NACA0030'
+    % 
+    % %% Mild camber (general HAWT performance)
+    % 'NACA1408'
+    % 'NACA1409'
+    % 'NACA1410'
+    % 'NACA1411'
+    % 'NACA1412'
+    % 'NACA1414'
+    % 
+    % 'NACA2408'
+    % 'NACA2409'
+    % 'NACA2410'
+    % 'NACA2411'
+    % 'NACA2412'
+    % 'NACA2413'
+    % 'NACA2414'
+    % 'NACA2415'
+    % 
+    % %% Moderate camber (balanced efficiency + torque)
+    % 'NACA4309'
+    % 'NACA4310'
+    % 'NACA4312'
+    % 'NACA4314'
+    % 'NACA4315'
+    % 
+    % %% Higher camber (better lift at low Reynolds / startup torque)
+    % 'NACA4409'
+    % 'NACA4410'
+    % 'NACA4412'
+    % 'NACA4414'
+    % 'NACA4415'
+    % 'NACA4418'
+    % 
+    % %% Very high camber / thick (root sections / aggressive lift)
+    % 'NACA4421'
+    % 'NACA4424'
+    % 
+    % %% Thick symmetric (structure / low-speed robustness)
+    % 'NACA0032'
+    % 'NACA0035'
+    'NACA2012'
 };
 
 B_values = [3, 5];
