@@ -23,24 +23,63 @@ x = [];
 % Implement a simple optimisation using ga (if available) with a sensible
 % reference design and bounds. Use globals to match evaluateTurbine.
 
-% Set globals used by evaluateTurbine / turbineObj
-% global Vu rho eta nSections clearance B R Curve
+% Set globals used by liftAndDrag and BEM
+global Vu rho eta nSections clearance B R Curve optimise_c Re
 
 Vu = 6.0;
-R = 0.75;
+R = 0.72;
 Curve = @generator;
 rho = 1.29;
 eta = 0.6;
 nSections = 15;
-clearance = 0.1;
+clearance = 0.17;
 B = num_blades;
 
-% Reference smooth design
-chord_ref = linspace(0.30, 0.14, nSections);
-beta_ref  = linspace(40, 14, nSections) * pi/180;
+% BEM Values
+Re = 100000;        % Approximate Reynolds number for design
+optimise_c = false;
+
+% BEM Optimal Beta Shape
+[alpha, Cl, Cd] = liftAndDrag(name);
+[~, bemOptDesign] = BEM(alpha, Cl, Cd);
+disp(bemOptDesign)
+
+% Determine optimal shape for chord distribution
+r = linspace(clearance, R, nSections);
+s = linspace(0, 1, nSections);   % normalised span
+
+% End constraints from BEM
+c_root = bemOptDesign.chord(1);
+c_tip  = bemOptDesign.chord(end);
+
+% Peak location (1/4 of span)
+s_peak = 1/4;
+
+% Choose peak magnitude (relative to root)
+c_peak = 3 * c_root;   % tune this (1.1–1.5 is reasonable)
+
+chord_ref = zeros(1, nSections);
+
+for i = 1:nSections
+    if s(i) <= s_peak
+        % --- Smooth rise (cosine easing) ---
+        t = s(i) / s_peak;
+        chord_ref(i) = c_root + (c_peak - c_root) * (1 - cos(pi*t)) / 2;
+    else
+        % --- Smooth decay (cosine easing) ---
+        t = (s(i) - s_peak) / (1 - s_peak);
+        chord_ref(i) = c_peak + (c_tip - c_peak) * (1 - cos(pi*t)) / 2;
+    end
+end
+
+% Safety clamps (optional but recommended)
+chord_ref = max(chord_ref, 0.05);
+chord_ref = min(chord_ref, 0.5);
+
+beta_ref = bemOptDesign.beta;
 
 % Bounds around the reference design
-chord_lb = 0.25 .* chord_ref;       % lower bound on chord
+chord_lb = 0.5 .* chord_ref;       % lower bound on chord
 chord_ub = 1.75 .* chord_ref;       % upper bound on chord
 beta_lb  = beta_ref - (10*pi/180);
 beta_ub  = beta_ref + (10*pi/180);
@@ -49,7 +88,11 @@ lb = [chord_lb, beta_lb];
 ub = [chord_ub, beta_ub];
 
 function obj = objective(design)
-    [obj, Vu] = turbineObj(design, fx, Vu, rho, eta, nSections, clearance, B, R, Curve);
+    [obj, ~] = objectivePenalties(design, false, false);
+end
+
+function [obj, rpm] = objectivePenalties(design, skipPenalties, returnRPM)
+    [obj, Vu, rpm] = turbineObj(design, fx, Vu, rho, eta, nSections, clearance, B, R, Curve, skipPenalties, returnRPM);
 end
 
 nvars = 2 * nSections;
@@ -85,7 +128,7 @@ opts = optimoptions('ga', ...
     'UseParallel',             true, ...
     'InitialPopulationMatrix', init_pop);
 
-[xbest, fbest] = ga(@objective, nvars, [], [], [], [], lb, ub, [], opts);
+[xbest, ~] = ga(@objective, nvars, [], [], [], [], lb, ub, [], opts);
 
 outputFolder = 'GAResults';
 if ~exist(outputFolder, 'dir')
@@ -94,15 +137,20 @@ end
 
 figs = findall(0, 'Type', 'figure');
 if ~isempty(figs)
+    fig = figs(1);
+    theme(fig, "light")
     filename = fullfile(outputFolder, [name, '_', num2str(B), '_GA_convergence.png']);
-    exportgraphics(figs(1), filename, 'Resolution', 300);
-    % close(figs(1));
+    exportgraphics(fig, filename, 'Resolution', 300);
+    close(fig);
 end
 
 % Prepare outputs
 x = xbest(:)';
 chord = x(1:nSections);
 beta  = x(nSections+1:end);
+
+% Rerun turbineObj to get true weighted Power
+[fbest, rpm] = objectivePenalties(x, true, true);
 
 % Best achieved weighted power (turbineObj returns negative weighted power)
 if isfinite(fbest) && (fbest < 1e5)
@@ -115,7 +163,10 @@ result.best_design = x;
 result.chord = chord;
 result.beta = beta;
 result.weighted_power = best_weighted_power;
-result.info = struct('nSections', nSections, 'B', B);
+sol = calculateSolidity(chord, r, B);
+result.info = struct('nSections', nSections, 'B', B, ...
+    'solidity', sol',...
+    'rpm', rpm);
 
 % Create output folder if needed
 distFolder = 'Distributions';
@@ -127,10 +178,15 @@ end
 r = linspace(clearance, R, nSections);
 beta_deg = beta * 180/pi;
 fig = figure('Visible', 'off');
+theme(fig, "light")
 
 % --- Chord plot ---
 subplot(2,1,1);
-plot(r, chord, 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+hold on;
+plot(r, chord_lb, 'Color', [0.6 0.6 1], 'LineWidth', 1);
+plot(r, chord_ub, 'Color', [0.6 0.6 1], 'LineWidth', 1);
+plot(r, chord,    'Color', [0 0 1],     'LineWidth', 1.5, ...
+    'MarkerSize', 4, 'Marker', 'o');
 grid on;
 xlabel('Radius (m)');
 ylabel('Chord (m)');
@@ -138,7 +194,13 @@ title('Chord Distribution');
 
 % --- Beta plot ---
 subplot(2,1,2);
-plot(r, beta_deg, 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+hold on;
+beta_lb_deg = rad2deg(beta_lb);
+beta_ub_deg = rad2deg(beta_ub);
+plot(r, beta_lb_deg,  'Color', [1 0.6 0.6], 'LineWidth', 1);
+plot(r, beta_ub_deg,  'Color', [1 0.6 0.6], 'LineWidth', 1);
+plot(r, beta_deg, 'Color', [1 0 0],     'LineWidth', 1.5, ...
+    'MarkerSize', 4, 'Marker', 'o');
 grid on;
 xlabel('Radius (m)');
 ylabel('Beta (deg)');
@@ -158,5 +220,23 @@ function RPM = generator(Q)
     else
         RPM = -generator(-Q);
     end
+end
+
+function solidity = calculateSolidity(chord, r, B)
+    chord = chord(:);
+    r = r(:);
+
+    solidity = zeros(size(r));
+
+    for i_ = 2:length(r)
+        solidity(i_) = (B * chord(i_)) / (2*pi*r(i_));
+    end
+
+    % copy root value for stability
+    solidity(1) = solidity(2);
+
+    % optional safety clamp
+    solidity = min(max(solidity, 0), 1);
+
 end
 end

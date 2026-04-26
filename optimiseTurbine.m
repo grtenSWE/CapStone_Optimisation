@@ -7,11 +7,12 @@ function results = optimiseTurbine()
 %   3. call optimiseTurbineGivenShape
 %   4. store the best result for each airfoil
 %   5. identify the best overall candidate
+clear all; clc;
 
 results = struct();
 
 % Values passed to GA
-scale = 10;
+scale = 15;
 popSize = floor(15 * scale);
 maxGens = floor(10 * scale);
 
@@ -21,7 +22,7 @@ c = parcluster('Processes');
 c.NumWorkers = n;
 c.NumThreads = 1;
 saveProfile(c);
-% parpool(c, n); % Should Auto-Start
+% parpool(c, n); % Should Auto-Start with GA
 
 % Candidate airfoils
 airfoil_candidates = {
@@ -90,7 +91,8 @@ airfoil_candidates = {
     % 'NACA0035'
 };
 
-B_values = [5];
+% B_values = [3, 5, 7];
+B_values = [3];
 
 % Fixed blade count for comparison
 for B = B_values
@@ -100,11 +102,12 @@ for B = B_values
     best_overall = struct('name', '', 'result', [], 'design', [], 'weighted_power', -Inf);
     
     % Open file ONCE in append mode
-    filename = sprintf('turbine_spec_final_%s.txt', string(B));
+    filename = sprintf('turbine_spec_final_final_%s.txt', string(B));
     fid = fopen(filename, 'w+'); % Overwrite file.
     
     for i = 1:length(airfoil_candidates)
         name = airfoil_candidates{i};
+
         [fx, success] = createSurrogate(name, -10:25);
         if ~success
             warning('optimiseTurbine:SurrogateFail', 'Failed to build surrogate for %s', name);
@@ -142,8 +145,10 @@ for B = B_values
         fprintf(fid, '  beta:  [%s]\n', num2str(res.beta, ' %.4f'));
     
         fprintf(fid, '  info:\n');
+        fprintf(fid, '    RPM:       [%s]\n', num2str(res.info.rpm, ' %.4f'));
+        fprintf(fid, '    Solidity:  [%s]\n', num2str(res.info.solidity, ' %.4f'));
         fprintf(fid, '    nSections: %d\n', res.info.nSections);
-        fprintf(fid, '    B: %d\n', res.info.B);
+        fprintf(fid, '    B:         %d\n', res.info.B);
     
         fprintf(fid, 'Design Variables:\n');
         fprintf(fid, '  x: [%s]\n', num2str(design, ' %.4f'));
