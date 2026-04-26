@@ -10,6 +10,19 @@ function results = optimiseTurbine()
 
 results = struct();
 
+% Values passed to GA
+scale = 10;
+popSize = floor(15 * scale);
+maxGens = floor(10 * scale);
+
+% Configure the parallel processes pool for GA
+n = feature('numcores');
+c = parcluster('Processes');
+c.NumWorkers = n;
+c.NumThreads = 1;
+saveProfile(c);
+% parpool(c, n); % Should Auto-Start
+
 % Candidate airfoils
 airfoil_candidates = {
     %% Symmetric (common for VAWT / structural simplicity)
@@ -20,7 +33,7 @@ airfoil_candidates = {
     % 'NACA0012'
     % 'NACA0013'
     % 'NACA0014'
-    % 'NACA0015'
+    'NACA0015'
     % 'NACA0016'
     % 'NACA0017'
     % 'NACA0018'
@@ -43,6 +56,7 @@ airfoil_candidates = {
     % 'NACA1412'
     % 'NACA1414'
     % 
+    % 'NACA2012'
     % 'NACA2408'
     % 'NACA2409'
     % 'NACA2410'
@@ -74,10 +88,9 @@ airfoil_candidates = {
     % %% Thick symmetric (structure / low-speed robustness)
     % 'NACA0032'
     % 'NACA0035'
-    'NACA2012'
 };
 
-B_values = [3, 5];
+B_values = [5];
 
 % Fixed blade count for comparison
 for B = B_values
@@ -87,8 +100,8 @@ for B = B_values
     best_overall = struct('name', '', 'result', [], 'design', [], 'weighted_power', -Inf);
     
     % Open file ONCE in append mode
-    filename = sprintf('turbine_spec_%s.txt', string(B));
-    fid = fopen(filename, 'a+');
+    filename = sprintf('turbine_spec_final_%s.txt', string(B));
+    fid = fopen(filename, 'w+'); % Overwrite file.
     
     for i = 1:length(airfoil_candidates)
         name = airfoil_candidates{i};
@@ -97,7 +110,7 @@ for B = B_values
             warning('optimiseTurbine:SurrogateFail', 'Failed to build surrogate for %s', name);
             continue;
         else
-            [res, design] = optimiseTurbineGivenShape(name, fx, B);
+            [res, design] = optimiseTurbineGivenShape(name, fx, B, popSize, maxGens);
             entry = struct('Name', name, 'Result', res, 'Design', design);
             results.candidates{end+1} = entry;
                 wp = NaN;

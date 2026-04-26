@@ -1,4 +1,4 @@
- function obj = turbineObj(design, fx)
+function [obj, Vu] = turbineObj(design, fx, Vu, rho, eta, nSections, clearance, B, R, Curve)
 % TURBINEOBJ Objective function for multi-wind-speed turbine optimisation.
 %
 %   obj = turbineObj(design, fx)
@@ -6,8 +6,6 @@
 %   design  - vector of length 2*nSections: [chord, beta]
 %   fx      - airfoil surrogate function
 %   Returns the negative weighted power (for use with minimisers).
-
-global Vu nSections
 
 chord = design(1:nSections);
 beta  = design(nSections+1:end);
@@ -20,7 +18,7 @@ Vu_before = Vu;
 
 for i = 1:length(wind_speeds)
     Vu = wind_speeds(i);
-    [PE, RPM] = evaluateTurbine(fx, chord, beta);
+    [PE, RPM] = evaluateTurbine(fx, chord, beta, Vu, rho, eta, nSections, clearance, B, R, Curve);
 
     % Apply RPM contribution rule
     if RPM < 0

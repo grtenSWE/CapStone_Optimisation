@@ -1,4 +1,4 @@
-function [obj, speed] = evaluateTurbine(fx, c, beta)
+function [obj, speed] = evaluateTurbine(fx, c, beta, Vu, rho, eta, nSections, clearance, B, R, Curve)
     % This function evaluates a turbine design, given a set of properties in a
     % format suitable for optimisation using metaheuristics.
     %
@@ -12,9 +12,6 @@ function [obj, speed] = evaluateTurbine(fx, c, beta)
     % Outputs:  obj = objective value of interest, to be defined for the
     %                 application. Usually, Cp.
     %           speed = The RPM of the turbine
-    
-    % Constants (to go into params)
-    global Vu rho eta nSections clearance B R Curve
     
     % Radius accross the sections of the blades
     r = linspace(clearance, R, nSections);

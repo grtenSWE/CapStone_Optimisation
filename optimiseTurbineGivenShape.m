@@ -1,4 +1,4 @@
-function [result, x] = optimiseTurbineGivenShape(name, fx, num_blades)
+function [result, x] = optimiseTurbineGivenShape(name, fx, num_blades, popSize, maxGens)
 % OPTIMISETURBINEGIVENSHAPE Inner-loop scaffold for a fixed airfoil.
 %
 % Suggested steps:
@@ -24,7 +24,7 @@ x = [];
 % reference design and bounds. Use globals to match evaluateTurbine.
 
 % Set globals used by evaluateTurbine / turbineObj
-global Vu rho eta nSections clearance B R Curve
+% global Vu rho eta nSections clearance B R Curve
 
 Vu = 6.0;
 R = 0.75;
@@ -48,33 +48,8 @@ beta_ub  = beta_ref + (10*pi/180);
 lb = [chord_lb, beta_lb];
 ub = [chord_ub, beta_ub];
 
-% Objective wrapper with caching to avoid re-evaluating similar designs (AI)
-% function obj = safe_obj(design)
-%     % ensure vector length
-%     if length(design) ~= 2*nSections
-%         obj = 1e9; return
-%     end
-% 
-%     % Persistent cache keyed by quantized design
-%     persistent cacheMap
-%     if isempty(cacheMap)
-%         cacheMap = containers.Map('KeyType', 'char', 'ValueType', 'double');
-%     end
-% 
-%     % Quantize design to 4 decimal places to catch near-duplicates
-%     key = mat2str(round(design, 4));
-%     if isKey(cacheMap, key)
-%         obj = cacheMap(key);
-%         return
-%     end
-% 
-%     % Evaluate
-%     obj = turbineObj(design, fx);
-%     cacheMap(key) = obj;
-% end
-
 function obj = objective(design)
-    obj = turbineObj(design, fx);
+    [obj, Vu] = turbineObj(design, fx, Vu, rho, eta, nSections, clearance, B, R, Curve);
 end
 
 nvars = 2 * nSections;
@@ -83,8 +58,6 @@ nvars = 2 * nSections;
 % x0 = [chord_ref, beta_ref];
 
 % GA tuning (reduced population/generations, remove plot, seed initial population)
-popSize = 150;
-maxGens = 100;
 eliteCount = floor(popSize / 10);
 maxStall = floor(maxGens / 10);
 
@@ -109,6 +82,7 @@ opts = optimoptions('ga', ...
     'CrossoverFraction',       0.5, ...
     'FunctionTolerance',       1e-4, ...
     'MaxStallGenerations',     maxStall, ...
+    'UseParallel',             true, ...
     'InitialPopulationMatrix', init_pop);
 
 [xbest, fbest] = ga(@objective, nvars, [], [], [], [], lb, ub, [], opts);
@@ -120,7 +94,7 @@ end
 
 figs = findall(0, 'Type', 'figure');
 if ~isempty(figs)
-    filename = fullfile(outputFolder, [name, '_GA_convergence.png']);
+    filename = fullfile(outputFolder, [name, '_', num2str(B), '_GA_convergence.png']);
     exportgraphics(figs(1), filename, 'Resolution', 300);
     % close(figs(1));
 end
@@ -142,6 +116,38 @@ result.chord = chord;
 result.beta = beta;
 result.weighted_power = best_weighted_power;
 result.info = struct('nSections', nSections, 'B', B);
+
+% Create output folder if needed
+distFolder = 'Distributions';
+if ~exist(distFolder, 'dir')
+    mkdir(distFolder);
+end
+
+% Radial stations (non-dimensional or just index-based)
+r = linspace(clearance, R, nSections);
+beta_deg = beta * 180/pi;
+fig = figure('Visible', 'off');
+
+% --- Chord plot ---
+subplot(2,1,1);
+plot(r, chord, 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+grid on;
+xlabel('Radius (m)');
+ylabel('Chord (m)');
+title('Chord Distribution');
+
+% --- Beta plot ---
+subplot(2,1,2);
+plot(r, beta_deg, 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+grid on;
+xlabel('Radius (m)');
+ylabel('Beta (deg)');
+title('Twist (Beta) Distribution');
+
+filename = fullfile(distFolder, [name, '_', num2str(B), '_ChordBeta.png']);
+exportgraphics(fig, filename, 'Resolution', 300);
+
+close(fig);
 
 % Nested generator curve used by evaluateTurbine
 function RPM = generator(Q)
