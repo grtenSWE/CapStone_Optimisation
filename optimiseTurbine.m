@@ -12,7 +12,7 @@ clear all; clc;
 results = struct();
 
 % Values passed to GA
-scale = 15;
+scale = 10;
 popSize = floor(15 * scale);
 maxGens = floor(10 * scale);
 
@@ -93,8 +93,10 @@ airfoil_candidates = {
 
 % B_values = [3, 5, 7];
 B_values = [3];
+nSection_Values = [7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 % Fixed blade count for comparison
+% for nSections = nSection_Values
 for B = B_values
     results.candidates = {};
     all_wp = zeros(1, length(airfoil_candidates));
@@ -105,6 +107,7 @@ for B = B_values
     filename = sprintf('turbine_spec_final_final_%s.txt', string(B));
     fid = fopen(filename, 'w+'); % Overwrite file.
     
+    for nSections = nSection_Values
     for i = 1:length(airfoil_candidates)
         name = airfoil_candidates{i};
 
@@ -113,7 +116,7 @@ for B = B_values
             warning('optimiseTurbine:SurrogateFail', 'Failed to build surrogate for %s', name);
             continue;
         else
-            [res, design] = optimiseTurbineGivenShape(name, fx, B, popSize, maxGens);
+            [res, design] = optimiseTurbineGivenShape(name, fx, B, nSections, popSize, maxGens);
             entry = struct('Name', name, 'Result', res, 'Design', design);
             results.candidates{end+1} = entry;
                 wp = NaN;
@@ -137,7 +140,7 @@ for B = B_values
         % WRITE EACH RESULT (IN LOOP)
         % ==========================
         fprintf(fid, '========================================\n');
-        fprintf(fid, 'Airfoil: %s\n', name);
+        fprintf(fid, 'Airfoil: %s %s\n', name, num2str(res.info.nSections));
     
         fprintf(fid, 'Result:\n');
         fprintf(fid, '  weighted_power: %.6f\n', res.weighted_power);
@@ -154,6 +157,7 @@ for B = B_values
         fprintf(fid, '  x: [%s]\n', num2str(design, ' %.4f'));
     
         fprintf(fid, '\n');
+    end
     end
     
     % ==========================
@@ -175,6 +179,7 @@ for B = B_values
     
             fprintf(fid, '#%d Airfoil: %s\n', k, entry.Name);
             fprintf(fid, '  weighted_power: %.6f\n', res.weighted_power);
+            fprintf(fid, '  nSections: %s\n', num2str(res.info.nSections));
             fprintf(fid, '  chord: [%s]\n', num2str(res.chord, ' %.4f'));
             fprintf(fid, '  beta:  [%s]\n', num2str(res.beta, ' %.4f'));
             fprintf(fid, '\n');
@@ -192,7 +197,7 @@ for B = B_values
         fprintf(fid, '========================================\n');
         fprintf(fid, 'BEST OVERALL\n');
         fprintf(fid, '========================================\n');
-        fprintf(fid, 'Airfoil: %s\n', results.best.name);
+        fprintf(fid, 'Airfoil: %s %s\n', results.best.name, num2str(results.best.result.info.nSections));
         fprintf(fid, 'Weighted Power: %.6f\n', results.best.weighted_power);
     end
     
@@ -200,3 +205,4 @@ for B = B_values
     
 end
 end
+% end

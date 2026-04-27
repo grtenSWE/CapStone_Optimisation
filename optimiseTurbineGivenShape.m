@@ -1,4 +1,4 @@
-function [result, x] = optimiseTurbineGivenShape(name, fx, num_blades, popSize, maxGens)
+function [result, x] = optimiseTurbineGivenShape(name, fx, num_blades, num_sections, popSize, maxGens)
 % OPTIMISETURBINEGIVENSHAPE Inner-loop scaffold for a fixed airfoil.
 %
 % Suggested steps:
@@ -31,7 +31,7 @@ R = 0.72;
 Curve = @generator;
 rho = 1.29;
 eta = 0.6;
-nSections = 15;
+nSections = num_sections;
 clearance = 0.17;
 B = num_blades;
 
@@ -139,7 +139,7 @@ figs = findall(0, 'Type', 'figure');
 if ~isempty(figs)
     fig = figs(1);
     theme(fig, "light")
-    filename = fullfile(outputFolder, [name, '_', num2str(B), '_GA_convergence.png']);
+    filename = fullfile(outputFolder, [name, '_Blades', num2str(B), '_nSections', num2str(nSections), '_GA_convergence.png']);
     exportgraphics(fig, filename, 'Resolution', 300);
     close(fig);
 end
@@ -206,7 +206,7 @@ xlabel('Radius (m)');
 ylabel('Beta (deg)');
 title('Twist (Beta) Distribution');
 
-filename = fullfile(distFolder, [name, '_', num2str(B), '_ChordBeta.png']);
+filename = fullfile(distFolder, [name, '_Blades', num2str(B), '_nSections', num2str(nSections), '_ChordBeta.png']);
 exportgraphics(fig, filename, 'Resolution', 300);
 
 close(fig);
