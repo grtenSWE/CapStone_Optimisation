@@ -8,7 +8,8 @@ function [obj, Vu, rpm_] = turbineObj(design, fx, Vu, rho, eta, nSections, clear
 %   Returns the negative weighted power (for use with minimisers).
 
 chord = design(1:nSections);
-beta  = design(nSections+1:end);
+beta  = design(nSections+1:end-1);
+R     = design(end);
 
 wind_speeds = [4.0, 5.0, 6.0, 7.0];
 weightings  = [0.25, 0.45, 0.20, 0.10];

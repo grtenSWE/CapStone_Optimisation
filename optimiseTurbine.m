@@ -12,7 +12,7 @@ clear all; clc;
 results = struct();
 
 % Values passed to GA
-scale = 10;
+scale = 50;
 popSize = floor(15 * scale);
 maxGens = floor(10 * scale);
 
@@ -93,7 +93,8 @@ airfoil_candidates = {
 
 % B_values = [3, 5, 7];
 B_values = [3];
-nSection_Values = [7, 8, 9, 10, 11, 12, 13, 14, 15];
+% nSection_Values = [7, 8, 9, 10, 11, 12, 13, 14, 15];
+nSection_Values = [9];
 
 % Fixed blade count for comparison
 % for nSections = nSection_Values
@@ -146,6 +147,7 @@ for B = B_values
         fprintf(fid, '  weighted_power: %.6f\n', res.weighted_power);
         fprintf(fid, '  chord: [%s]\n', num2str(res.chord, ' %.4f'));
         fprintf(fid, '  beta:  [%s]\n', num2str(res.beta, ' %.4f'));
+        fprintf(fid, '  R:     %s\n', num2str(res.R, ' %.4f'));
     
         fprintf(fid, '  info:\n');
         fprintf(fid, '    RPM:       [%s]\n', num2str(res.info.rpm, ' %.4f'));
@@ -182,6 +184,7 @@ for B = B_values
             fprintf(fid, '  nSections: %s\n', num2str(res.info.nSections));
             fprintf(fid, '  chord: [%s]\n', num2str(res.chord, ' %.4f'));
             fprintf(fid, '  beta:  [%s]\n', num2str(res.beta, ' %.4f'));
+            fprintf(fid, '  R:     %s\n', num2str(res.R, ' %.4f'));
             fprintf(fid, '\n');
         end
     

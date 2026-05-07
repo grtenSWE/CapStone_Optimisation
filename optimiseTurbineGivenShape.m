@@ -32,7 +32,7 @@ Curve = @generator;
 rho = 1.29;
 eta = 0.6;
 nSections = num_sections;
-clearance = 0.17;
+clearance = 0.19;
 B = num_blades;
 
 % BEM Values
@@ -78,14 +78,20 @@ chord_ref = min(chord_ref, 0.5);
 
 beta_ref = bemOptDesign.beta;
 
+R_ref = 0.72;
+
 % Bounds around the reference design
 chord_lb = 0.5 .* chord_ref;       % lower bound on chord
 chord_ub = 1.75 .* chord_ref;       % upper bound on chord
 beta_lb  = beta_ref - (10*pi/180);
 beta_ub  = beta_ref + (10*pi/180);
 
-lb = [chord_lb, beta_lb];
-ub = [chord_ub, beta_ub];
+% Bounds for Spar Geometry
+R_lb = 0.50; % Any less is likely not going to be optimal
+R_ub = 0.75; % R <= 0.75 (To account for max radius = 0.8)
+
+lb = [chord_lb, beta_lb, R_lb];
+ub = [chord_ub, beta_ub, R_ub];
 
 function obj = objective(design)
     [obj, ~] = objectivePenalties(design, false, false);
@@ -95,7 +101,7 @@ function [obj, rpm] = objectivePenalties(design, skipPenalties, returnRPM)
     [obj, Vu, rpm] = turbineObj(design, fx, Vu, rho, eta, nSections, clearance, B, R, Curve, skipPenalties, returnRPM);
 end
 
-nvars = 2 * nSections;
+nvars = 2 * nSections + 1;
 
 % Initial guess (used for pop matrix)
 % x0 = [chord_ref, beta_ref];
@@ -111,7 +117,7 @@ maxStall = floor(maxGens / 10);
 %     initPop(ii,:) = lb + (ub - lb) .* rand(1, nvars);
 % end
 
-init_pop = repmat([chord_ref, beta_ref], 100, 1);
+init_pop = repmat([chord_ref, beta_ref, R_ref], 100, 1);
 init_pop = init_pop + randn(100, nvars) .* 0.02;
 init_pop = max(init_pop, lb);
 init_pop = min(init_pop, ub);
@@ -147,7 +153,8 @@ end
 % Prepare outputs
 x = xbest(:)';
 chord = x(1:nSections);
-beta  = x(nSections+1:end);
+beta  = x(nSections+1:end-1);
+R_fin     = x(end);
 
 % Rerun turbineObj to get true weighted Power
 [fbest, rpm] = objectivePenalties(x, true, true);
@@ -162,6 +169,7 @@ end
 result.best_design = x;
 result.chord = chord;
 result.beta = beta;
+result.R = R_fin;
 result.weighted_power = best_weighted_power;
 sol = calculateSolidity(chord, r, B);
 result.info = struct('nSections', nSections, 'B', B, ...
@@ -175,7 +183,7 @@ if ~exist(distFolder, 'dir')
 end
 
 % Radial stations (non-dimensional or just index-based)
-r = linspace(clearance, R, nSections);
+r = linspace(clearance, R_fin, nSections);
 beta_deg = beta * 180/pi;
 fig = figure('Visible', 'off');
 theme(fig, "light")
